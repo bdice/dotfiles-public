@@ -30,9 +30,11 @@ Plugin 'raimondi/yaifa'                  " Determine indent settings automatical
 
 " Syntax plugins:
 Plugin 'vim-syntastic/syntastic'         " Syntax checking
-Plugin 'cakebaker/scss-syntax.vim'       " Syntax highlighting for SCSS
 Plugin 'tshirtman/vim-cython'            " Syntax highlighting for Cython
 Plugin 'isRuslan/vim-es6'                " Syntax highlighting for ES6
+Plugin 'glench/vim-jinja2-syntax'        " Syntax highlighting for jinja2
+Plugin 'cakebaker/scss-syntax.vim'       " Syntax highlighting for SCSS
+Plugin 'cespare/vim-toml'                " Syntax highlighting for TOML
 Plugin 'leafgarland/typescript-vim'      " Syntax highlighting for TypeScript
 
 " Web development plugins:
@@ -95,7 +97,7 @@ endtry
 map j gj
 map k gk
 
-" Keep selection when shifting indentation
+" Keep selection when using indentation
 vnoremap > >gv
 vnoremap < <gv
 
@@ -140,12 +142,11 @@ autocmd FileType sh nnoremap <buffer> <F5> :exec '!clear;bash' shellescape(@%, 1
 set pastetoggle=<F6>
 
 " Reformat all indentation with F7
-" Default style is Whitesmith
-" Set to Whitesmith with Ctrl-F7, reset to default with Ctrl-Shift-F7
-set cinoptions={1s,f1s
+" Set to Whitesmith style with Ctrl-F7, reset to default with Ctrl-Shift-F7
+set cinoptions&
 map <F7> mzgg=G`z
 map <C-F7> :set cinoptions={1s,f1s<CR>
-map <C-S-F7> :set cinoptions=<CR>
+map <C-S-F7> :set cinoptions&<CR>
 
 " Highlight unwanted spaces/tags in red
 highlight ExtraWhitespace ctermbg=red guibg=red
@@ -165,8 +166,8 @@ map <F2> :NERDTreeToggle<CR>
 autocmd StdinReadPre * let s:std_in=1
 autocmd VimEnter * if argc() == 0 && !exists("s:std_in") | NERDTree | endif
 
-" Hide NERDTree when opening a file
-let NERDTreeQuitOnOpen = 1
+" Keep NERDTree open when opening a file
+let NERDTreeQuitOnOpen = 0
 
 " Airline settings
 set laststatus=2 " Needed for Airline without splits
@@ -181,7 +182,7 @@ let g:syntastic_mode_map = { 'passive_filetypes': ['python'] }
 "let g:ycm_autoclose_preview_window_after_completion = 1
 "let g:ycm_auto_trigger = 0
 
-" Remove Whitespace on Save (vim-better-whitespace)
+" Trim trailing whitespace on save (vim-better-whitespace)
 autocmd BufEnter * EnableStripWhitespaceOnSave
 
 " Autoclose HTML tags for filenames like *.xml, *.html, *.xhtml, ...
