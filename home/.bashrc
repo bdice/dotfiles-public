@@ -13,56 +13,10 @@ if [[ $- != *i* ]] ; then
     return
 fi
 
-# Detect Platform
-if [ "$(uname -s)" == "Darwin" ]; then
-    OS_PLATFORM="Mac"
-else
-    # Default to Linux
-    OS_PLATFORM="Linux"
+# Load command aliases from ~/.bash_aliases
+if [[ -f ~/.bash_aliases ]] ; then
+    . ~/.bash_aliases
 fi
-
-# Aliases
-if [ "$OS_PLATFORM" == "Mac" ]; then
-    # Color ls
-    export CLICOLOR=1
-    export LSCOLORS=ExFxCxDxBxegedabagacad
-    # Color grep
-    export GREP_OPTIONS="--color=always"
-    export GREP_COLOR="1;35;40"
-
-    # Prevent path_helper from messing up PATH in tmux
-    if [ -n $TMUX ] && [ -f /etc/profile ]; then
-        PATH=""
-        source /etc/profile
-    fi
-else
-    alias ls="ls --color=auto"
-    alias grep="grep --color=auto"
-fi
-
-alias ll="ls -alhF"
-alias sl="ls"
-alias l="ls"
-alias ..="cd .."
-alias ...="cd ../.."
-alias ....="cd ../../.."
-alias .....="cd ../../../.."
-alias ......="cd ../../../../.."
-alias .......="cd ../../../../../.."
-alias ........="cd ../../../../../../.."
-alias tmux="tmux -2 -u"
-alias tl="tmux ls"
-alias ta="tmux attach -t"
-alias gdiff="git diff --no-index --"
-
-# git quick commands
-alias s="git status"
-alias ga="git add -p"
-alias com="git commit -m"
-alias ch="git checkout"
-alias push="git push"
-alias pull="git pull"
-alias gsui="git submodule update --init"
 
 # Shell options
 # Automatically enter directories
@@ -74,64 +28,19 @@ shopt -s cmdhist
 # Print timestamps in history
 HISTTIMEFORMAT="%F %T "
 
-# Terminal prompt
+# Colors in terminal
+#export TERM=xterm-256color
 export PS1="\[\033[1;32m\]\u@\h \[\033[38;5;12m\]\w $\[\033[0m\] "
 
 # Autocomplete settings
 complete -d cd
 complete -f vim
-source $HOME/.completions/git-completion.bash
+if [ -f $HOME/.completions/git-completion.bash ]; then
+    source $HOME/.completions/git-completion.bash
+fi
 
-# cddir: if the argument is a file, cd to its directory.
-# If directory, cd there directly.
-function cddir() {
-    TARGET=$1
-    if [ -d "$TARGET" ]; then
-        cd $TARGET
-    elif [ -e "$TARGET" ]; then
-        cd $(dirname $TARGET)
-    else
-        echo "$TARGET is not a file or directory."
-    fi
-}
-
-# search:
-# first argument is search pattern
-# second arg (optional) is directory
-function search() {
-    grep -rn ${2:-.} -e "$1"
-}
-
-# keep repeats a task every 5 seconds
-function keep() {
-    "$@"
-    while sleep 5; do
-        "$@"
-    done
-}
-
-# prettyjson pretty-prints a json file
-function jsonprettify() {
-    python -m json.tool $1 | pygmentize -l javascript
-}
-
-# Shortcut for python's built-in webserver
-function webserve() {
-    python -m http.server --bind localhost ${1:-8888}
-}
-
-# Build and serve sphinx documentation
-function sphinxserve() {
-    make html || return 1
-    trap "cd ../.." RETURN
-    cd _build/html && webserve ${1:-8888}
-}
-
-# Prevent git commits that don't adhere to flake8
-function flake8hook() {
-    flake8 --install-hook git
-    git config --bool flake8.strict true
-}
+# Set up ripgrep config
+export RIPGREP_CONFIG_PATH="$HOME/.ripgreprc"
 
 # ==========
 # PATH SETUP
@@ -142,37 +51,57 @@ if [[ ! ":$PATH:" == *":$HOME/.local/bin:"* ]]; then
     export PATH=$HOME/.local/bin:$PATH
 fi
 
-# conda PATH setup
-if [ -d $HOME/miniconda3/bin ]; then
-    export CONDA_PATH="$HOME/miniconda3"
-    if [[ ! ":$PATH:" == *":${CONDA_PATH}/bin:"* ]]; then
-        export PATH="${CONDA_PATH}/bin:$PATH"
-    fi
-elif [ -d $HOME/anaconda3/bin ]; then
-    export CONDA_PATH="$HOME/anaconda3"
-    if [[ ! ":$PATH:" == *":${CONDA_PATH}/bin:"* ]]; then
-        export PATH="${CONDA_PATH}/bin:$PATH"
-    fi
-fi
-
-# deconda removes all conda paths from PATH
-if [ -d $CONDA_PATH ]; then
-    alias deconda='conda deactivate; PATH=$(echo $PATH | sed -e "s|${CONDA_PATH}/bin:||")'
-fi
-
 # yarn setup
 if [ -d $HOME/.yarn/bin ] && [[ ! ":$PATH:" == *":$HOME/.yarn/bin:"* ]]; then
     export PATH="$HOME/.yarn/bin:$PATH"
 fi
 
-# Auto-activate conda environment
-if [ -d "${CONDA_PATH}/envs/glotzer" ]; then
-    source activate glotzer
+# npm setup
+if [ -d $HOME/node_modules/.bin ] && [[ ! ":$PATH:" == *":$HOME/node_modules/.bin:"* ]]; then
+    export PATH="$HOME/node_modules/.bin:$PATH"
 fi
 
-# Jupyter shortcuts
-alias jn="jupyter notebook --port=8675 --no-browser"
-alias jl="jupyter lab --port=8675 --no-browser"
+# rust setup
+if [ -d "$HOME/.cargo" ]; then
+    export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
+# go setup
+if [ -d $HOME/go/bin ] && [[ ! ":$PATH:" == *":$HOME/go/bin:"* ]]; then
+    export PATH="$HOME/go/bin:$PATH"
+fi
+
+# conda PATH setup
+if [ -d $HOME/miniforge3-aarch64/bin ] && [ "$(uname -m)" = "aarch64" ]; then
+    export CONDA_PATH="$HOME/miniforge3-aarch64"
+elif [ -d $HOME/mambaforge-aarch64/bin ] && [ "$(uname -m)" = "aarch64" ]; then
+    export CONDA_PATH="$HOME/mambaforge-aarch64"
+elif [ -d $HOME/miniforge3/bin ] && [ "$(uname -m)" = "x86_64" ]; then
+    export CONDA_PATH="$HOME/miniforge3"
+elif [ -d $HOME/mambaforge/bin ] && [ "$(uname -m)" = "x86_64" ]; then
+    export CONDA_PATH="$HOME/mambaforge"
+elif [ -d $HOME/miniconda3/bin ] && [ "$(uname -m)" = "x86_64" ]; then
+    export CONDA_PATH="$HOME/miniconda3"
+elif [ -d $HOME/anaconda3/bin ] && [ "$(uname -m)" = "x86_64" ]; then
+    export CONDA_PATH="$HOME/anaconda3"
+fi
+if [ "$CONDA_PATH" ] && [ -d "$CONDA_PATH" ]; then
+    eval "$($CONDA_PATH/bin/conda shell.bash hook)"
+    function deconda() {
+        while [[ -n "$CONDA_DEFAULT_ENV" ]]; do
+            echo "Deactivating ($CONDA_DEFAULT_ENV)..."
+            conda deactivate
+        done
+        export PATH=$(echo $PATH | sed -e "s|${CONDA_PATH}/condabin:||")
+    }
+fi
+
+# activate default conda environment
+if [ -d "${CONDA_PATH}/envs/dice" ]; then
+    source activate dice
+elif [ -d "${CONDA_PATH}/envs/rapids" ]; then
+    source activate rapids
+fi
 
 # Code directory
 if [ -d $HOME/code ]; then
@@ -181,73 +110,94 @@ else
     export CODE_DIR="$HOME"
 fi
 
-# bbclone, ghclone
-if [ -d "$CODE_DIR" ]; then
-    function ghclone() {
-        if [ -d ${3:-"$CODE_DIR/${1}"} ]; then
-            echo "${1} is already cloned."
-        else
-            git clone --recurse-submodules https://${USER}@github.com/${2:-"glotzerlab"}/${1}.git ${3:-"$CODE_DIR/${1}"}
-        fi
-    }
+# SSH Hosts
+export PORTFWDS="-L 8675:localhost:8675 -L 8676:localhost:8676 -L 8888:localhost:8888 -L 8889:localhost:8889"
 
-    function bbclone() {
-        if [ -d ${3:-"$CODE_DIR/${1}"} ]; then
-            echo "${1} is already cloned."
-        else
-            git clone --recurse-submodules https://${USER}@bitbucket.org/${2:-"glotzer"}/${1}.git ${3:-"$CODE_DIR/${1}"}
-        fi
-    }
+# Set editor
+if command -v vim &> /dev/null; then
+    export EDITOR=vim
 fi
-
-# Detect custom builds of HOOMD
-if [ -d "$CODE_DIR/hoomd-blue/build/" ] && ! python -c "import hoomd" > /dev/null 2>&1 && [[ ! ":$PYTHONPATH:" == *":$CODE_DIR/hoomd-blue/build/:"* ]]; then
-    export PYTHONPATH="$CODE_DIR/hoomd-blue/build/${PYTHONPATH:+":"}$PYTHONPATH"
-fi
-
-function whichpy() {
-    python -c "import $1; print('File: ' + $1.__file__); print('Version: ' + $1.__version__)"
-}
 
 # Distro-specific setup
 if [ -e /etc/os-release ]; then
     if [[ $(. /etc/os-release; printf '%s\n' "$NAME"; ) =~ (Ubuntu|Debian) ]]; then
-        alias upg="sudo apt-get update && sudo apt-get upgrade"
+        alias upg="sudo apt-get update && sudo apt-get full-upgrade && sudo apt-get autoremove"
     fi
 fi
 
-# Bash on Windows
-if [ -e /proc/version ] && grep -q Microsoft /proc/version; then
-    eval "$(dircolors -b $HOME/.dircolors)"
-    export DISPLAY=:0.0
-    export LIBGL_ALWAYS_INDIRECT=1
+if [[ -f "$HOME/.bashrc_extras" ]]; then
+    . $HOME/.bashrc_extras
 fi
 
-# Mac specific configuration
-if [ "$OS_PLATFORM" == "Mac" ]; then
+# Automatically add completion for all aliases to commands having completion functions
+function alias_completion {
+    local namespace="alias_completion"
 
-    # Turns the sound to the minimum so my headphones are quiet
-    alias quiet="osascript -e \"set Volume 0.001\""
+    # parse function based completion definitions, where capture group 2 => function and 3 => trigger
+    local compl_regex='complete( +[^ ]+)* -F ([^ ]+) ("[^"]+"|[^ ]+)'
+    # parse alias definitions, where capture group 1 => trigger, 2 => command, 3 => command arguments
+    local alias_regex="alias ([^=]+)='(\"[^\"]+\"|[^ ]+)(( +[^ ]+)*)'"
 
-    # Set brew prefix
-    if [ -d "${HOME}/homebrew" ]; then
-        BREW_PREFIX="${HOME}/homebrew"
-    else
-        BREW_PREFIX="/usr/local"
-    fi
+    # create array of function completion triggers, keeping multi-word triggers together
+    eval "local completions=($(complete -p | sed -Ene "/$compl_regex/s//'\3'/p"))"
+    (( ${#completions[@]} == 0 )) && return 0
 
-    if [ -e "${HOME}/.iterm2_shell_integration.bash" ]; then
-        source "${HOME}/.iterm2_shell_integration.bash"
-    fi
+    # create temporary file for wrapper functions and completions
+    rm -f "/tmp/${namespace}-*.tmp" # preliminary cleanup
+    local tmp_file; tmp_file="$(mktemp "/tmp/${namespace}-${RANDOM}XXX.tmp")" || return 1
 
-    # Use GNU coreutils instead of Mac equivalents
-    if [ -d "${BREW_PREFIX}/opt/coreutils/libexec/gnubin" ]; then
-        PATH="${BREW_PREFIX}/opt/coreutils/libexec/gnubin:$PATH"
-        alias ls="ls --color=auto"
-        alias grep="grep --color=auto"
-    fi
+    local completion_loader; completion_loader="$(complete -p -D 2>/dev/null | sed -Ene 's/.* -F ([^ ]*).*/\1/p')"
 
-    # Add a slash when tab-completing on symlink directories
-    bind 'set mark-symlinked-directories on'
+    # read in "<alias> '<aliased command>' '<command args>'" lines from defined aliases
+    local line; while read line; do
+        eval "local alias_tokens; alias_tokens=($line)" 2>/dev/null || continue # some alias arg patterns cause an eval parse error
+        local alias_name="${alias_tokens[0]}" alias_cmd="${alias_tokens[1]}" alias_args="${alias_tokens[2]# }"
 
+        # skip aliases to pipes, boolean control structures and other command lists
+        # (leveraging that eval errs out if $alias_args contains unquoted shell metacharacters)
+        eval "local alias_arg_words; alias_arg_words=($alias_args)" 2>/dev/null || continue
+        # avoid expanding wildcards
+        read -a alias_arg_words <<< "$alias_args"
+
+        # skip alias if there is no completion function triggered by the aliased command
+        if [[ ! " ${completions[*]} " =~ " $alias_cmd " ]]; then
+            if [[ -n "$completion_loader" ]]; then
+                # force loading of completions for the aliased command
+                eval "$completion_loader $alias_cmd"
+                # 124 means completion loader was successful
+                [[ $? -eq 124 ]] || continue
+                completions+=($alias_cmd)
+            else
+                continue
+            fi
+        fi
+        local new_completion="$(complete -p "$alias_cmd")"
+
+        # create a wrapper inserting the alias arguments if any
+        if [[ -n $alias_args ]]; then
+            local compl_func="${new_completion/#* -F /}"; compl_func="${compl_func%% *}"
+            # avoid recursive call loops by ignoring our own functions
+            if [[ "${compl_func#_$namespace::}" == $compl_func ]]; then
+                local compl_wrapper="_${namespace}::${alias_name}"
+                    echo "function $compl_wrapper {
+                        (( COMP_CWORD += ${#alias_arg_words[@]} ))
+                        COMP_WORDS=($alias_cmd $alias_args \${COMP_WORDS[@]:1})
+                        (( COMP_POINT -= \${#COMP_LINE} ))
+                        COMP_LINE=\${COMP_LINE/$alias_name/$alias_cmd $alias_args}
+                        (( COMP_POINT += \${#COMP_LINE} ))
+                        $compl_func
+                    }" >> "$tmp_file"
+                    new_completion="${new_completion/ -F $compl_func / -F $compl_wrapper }"
+            fi
+        fi
+
+        # replace completion trigger by alias
+        new_completion="${new_completion% *} $alias_name"
+        echo "$new_completion" >> "$tmp_file"
+    done < <(alias -p | sed -Ene "s/$alias_regex/\1 '\2' '\3'/p")
+    source "$tmp_file" && rm -f "$tmp_file"
+}; alias_completion
+
+if [ -f "${CODE_DIR}/rapids-cmake/cmake-format-rapids-cmake.json" ]; then
+    export RAPIDS_CMAKE_FORMAT_FILE="${CODE_DIR}/rapids-cmake/cmake-format-rapids-cmake.json"
 fi

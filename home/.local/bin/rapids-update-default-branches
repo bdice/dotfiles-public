@@ -1,0 +1,134 @@
+#!/bin/bash
+
+set -euo pipefail
+
+function echo-red ()
+{
+    echo -e "\033[31m${1}\033[0m"
+}
+
+function echo-cyan ()
+{
+    echo -e "\033[36m${1}\033[0m"
+}
+
+function convert-ucx-branch ()
+{
+    repo=$1
+    custom_branch=$2
+    if [[ "${repo}" == "ucx"* ]]; then
+        RAPIDS_VERSION=$(echo "${custom_branch}" | awk '{split($0, a, "-"); print a[2]}')
+        if [[ "${RAPIDS_VERSION}" =~ ^[0-9]{2}\.[0-9]{2}$ ]]; then
+            # Get UCX version associated w/ RAPIDS version
+            UCX_VERSION="$(curl -sL https://version.gpuci.io/rapids/${RAPIDS_VERSION})"
+            normalized_branch="branch-${UCX_VERSION}"
+        fi
+    else
+        normalized_branch="${custom_branch}"
+    fi
+    echo "${normalized_branch}"
+}
+
+function update-default-branch ()
+{
+    repo_dir=$1
+    update_origin_default_branch=${2:-""}
+    custom_branch=${3:-""}
+
+    pushd ${repo_dir} > /dev/null
+    repo=$(basename `git rev-parse --show-toplevel`)
+
+    # Get repo names. User forks could differ in name, e.g. rapidsai/docs and bdice/rapidsai-docs.
+    if git remote | grep -q "^upstream$" && git remote | grep -q "^origin$"; then
+        upstream_repo=$(git remote get-url upstream | sed -n 's#.*[/:]\(.*/.*\)\.git#\1#p')
+        my_fork=$(git remote get-url origin | sed -n 's#.*[/:]\(.*/.*\)\.git#\1#p')
+    else
+        upstream_repo=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+        my_fork=$(gh api repos/${upstream_repo}/forks --jq '.full_name' --method=POST)
+    fi
+
+    # Get the default branch from GitHub
+    default=$(git ls-remote --symref git@github.com:${upstream_repo} HEAD | awk '/^ref:/ {sub(/refs\/heads\//, "", $2); print $2}')
+    echo-cyan "Updating default branch for ${repo} to ${default}"
+    git fetch --all
+
+    # Update the default branch on GitHub
+    if [ -n "${update_origin_default_branch}" ]; then
+        git push origin refs/remotes/upstream/${default}:refs/heads/${default}
+        gh repo edit ${my_fork} --default-branch ${default}
+    fi
+
+    # Check out the default branch and set the upstream
+    git checkout ${default} || git checkout --track upstream/${default}
+    git branch --set-upstream-to=upstream/${default} ${default}
+    git pull
+
+    # Check out a custom branch if provided
+    if [ -n "${custom_branch}" ]; then
+        echo-cyan "Checking out custom branch ${custom_branch} for ${repo}"
+        if [[ "${custom_branch}" == "branch-"* ]]; then
+            normalized_branch=$(convert-ucx-branch "${repo}" "${custom_branch}")
+            # Use upstream for branch-YY.MM style
+            git checkout ${normalized_branch} || git checkout --track upstream/${normalized_branch} || echo-red "Branch ${normalized_branch} not found."
+        else
+            # Assume the branch is on origin otherwise
+            git checkout ${custom_branch} || git checkout --track origin/${custom_branch} || echo-red "Branch ${custom_branch} not found."
+        fi
+        git pull
+    fi
+
+    popd > /dev/null
+}
+
+update_origin_default_branch=""
+custom_branch=""
+
+while [ $# -gt 0 ]; do
+    arg=$1
+    case ${arg} in
+        -u|--update)
+            update_origin_default_branch=1
+            echo-cyan "Updating default branches on the fork."
+            shift
+        ;;
+        -b|--branch)
+            shift
+            custom_branch=$1
+            echo-cyan "Checking out custom branch ${custom_branch}."
+            shift
+        ;;
+        -h|--help)
+            echo "$(basename $0) help:"
+            echo ""
+            echo "This tool checks out the default branch from the upstream remote."
+            echo ""
+            echo "It detects a set of RAPIDS repos and will update all of those "
+            echo "repositories found in the current directory, or just the current repo "
+            echo "if called from inside a git repository."
+            echo ""
+            echo "Options:"
+            echo "  -u/--update: sync upstream's default branch to the origin remote"
+            echo "  -b/--branch <branch>: get a specific branch from the upstream remote"
+            echo "  -h/--help: show this message"
+            exit 1
+        ;;
+        *)
+            echo "Option ${arg} not recognized."
+            exit 1
+        ;;
+    esac
+done
+
+if git rev-parse --is-inside-work-tree &> /dev/null; then
+    repo=$(basename "$(git rev-parse --show-toplevel)")
+    update-default-branch . "${update_origin_default_branch}" "${custom_branch}"
+else
+    # Put cudf and rmm first so they're updated and ready to use
+    for repo in cudf rmm devcontainers shared-workflows rapids-cmake kvikio raft cuvs cumlprims_mg cuml cugraph cugraph-gnn nx-cugraph cuspatial cuxfilter ucxx ucx-py integration; do
+        if [ -d "${repo}/.git" ]; then
+            update-default-branch "${repo}" "${update_origin_default_branch}" "${custom_branch}"
+        else
+            echo-red "Repo ${repo} not found."
+        fi
+    done
+fi

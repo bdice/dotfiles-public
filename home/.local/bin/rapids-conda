@@ -1,0 +1,56 @@
+#!/bin/bash
+if [ $# -lt 2 ]; then
+  echo "Usage: $0 REPO PR_NUMBER [COMMIT] [PACKAGES]"
+  echo "REPO:      Repository name, e.g. \"cudf\"."
+  echo "PR_NUMBER: Pull request number, e.g. \"11392\"."
+  echo "COMMIT:    Optional commit hash. Defaults to the latest commit."
+  echo "PACKAGES:  Optional list of packages to install. e.g. \"libcudf libcudf-tests cudf\"."
+  echo "           Must be a quoted string if multiple packages are given. Defaults to REPO."
+  exit 1
+fi
+
+set -euo pipefail
+
+REPO=${1}
+PR_NUMBER=${2}
+COMMIT=$(echo "${3:-$(git ls-remote https://github.com/rapidsai/${REPO}.git refs/heads/pull-request/${PR_NUMBER})}" | cut -c1-7)
+PACKAGES=${4:-${REPO}}
+BUILD_ID=${REPO}_${PR_NUMBER}_${COMMIT}
+
+echo "Creating conda environment for ${REPO}, PR ${PR_NUMBER}, commit ${COMMIT}"
+
+# Keep these tags up to date as RAPIDS changes platform versions
+CPP_BUILD_TYPE=cpp_cuda12_x86_64
+PYTHON_BUILD_TYPE=python_cuda12_312_x86_64
+
+function fetch_and_extract_channel {
+  if [[ "${1}" == "cpp" ]]; then
+    BUILD_TYPE=${CPP_BUILD_TYPE}
+  elif [[ "${1}" == "python" ]]; then
+    BUILD_TYPE=${PYTHON_BUILD_TYPE}
+  else
+    echo "Invalid build type. Must be cpp or python." >&2
+    exit 1
+  fi
+  CHANNEL_PATH="${BUILD_ID}_${1}_channel"
+  CHANNEL_URL="https://downloads.rapids.ai/ci/${REPO}/pull-request/${PR_NUMBER}/${COMMIT}/${REPO}_conda_${BUILD_TYPE}.tar.gz"
+  if [[ ! -d ${CHANNEL_PATH} ]]; then
+    mkdir -p "${CHANNEL_PATH}"
+    echo "Fetching ${CHANNEL_URL}, extracting to ${CHANNEL_PATH}..." >&2
+    wget -O- "${CHANNEL_URL}" | tar xzf - -C "${CHANNEL_PATH}" >&2
+  fi
+  echo "Packages found in ${CHANNEL_PATH}:" >&2
+  find "${CHANNEL_PATH}" \( -name "*.tar.bz2" -o -name "*.conda" \) >&2
+  echo "$(realpath ${CHANNEL_PATH})"
+}
+
+echo "Fetching channel archives from downloads.rapids.ai..."
+echo
+
+CPP_CHANNEL=$(fetch_and_extract_channel cpp)
+echo
+PYTHON_CHANNEL=$(fetch_and_extract_channel python)
+
+echo
+echo "The conda environment will be named: ${BUILD_ID}"
+mamba create --no-banner --name "${BUILD_ID}" ${PACKAGES} -c "${CPP_CHANNEL}" -c "${PYTHON_CHANNEL}" -c rapidsai -c rapidsai-nightly -c conda-forge -c nvidia --yes

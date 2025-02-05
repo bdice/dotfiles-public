@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Universal extract function for common compressed file types
+for f in "$@"; do
+    if [ ! -f "$f" ]; then
+        echo "'$f' is not a file."
+        return 1
+    fi
+
+    b=$(basename -- "$f")  # Extract the filename
+    b="${b%.*}"  # Remove the extension
+
+    # Check if the extension is a .tar.* compound extension
+    if [[ "$b" == *".tar" ]]; then
+      b="${b%.tar}"
+    fi
+
+    echo "Extracting $f to $b."
+
+    case "$f" in
+        *.tar.bz2)   mkdir -p "$b"; tar -xvjf "$f" -C "$b";;
+        *.tar.gz)    mkdir -p "$b"; tar -xvzf "$f" -C "$b";;
+        *.tar.xz)    mkdir -p "$b"; tar -xvJf "$f" -C "$b";;
+        *.tar.zst)   mkdir -p "$b"; tar --use-compress-program=unzstd -xvf "$f" -C "$b";;
+        *.7z)        7z x "$f"       ;;
+        *.Z)         uncompress "$f" ;;
+        *.a)         ar xv "$f"      ;;
+        *.bz2)       bunzip2 "$f"    ;;
+        *.conda)     cph extract "$f";;
+        *.deb)       ar xv "$f"      ;;
+        *.gz)        gunzip "$f"     ;;
+        *.rar)       rar x "$f"      ;;
+        *.rpm)       rpm2cpio "$f" | cpio -idmv;;
+        *.tar)       mkdir -p "$b"; tar -xvf "$f" -C "$b";;
+        *.tbz2)      mkdir -p "$b"; tar -xvjf "$f" -C "$b";;
+        *.tgz)       mkdir -p "$b"; tar -xvzf "$f" -C "$b";;
+        *.whl)       unzip "$f"      ;;
+        *.xz)        xz -d "$f"      ;;
+        *.zip)       mkdir -p "$b"; unzip "$f" -d "$b";;
+        *)           echo "Unable to extract '$f'." ;;
+    esac
+done

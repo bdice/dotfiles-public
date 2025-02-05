@@ -1,0 +1,44 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# Check if the required arguments are provided
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 base_version forward_version [--commit]"
+    echo "Example: $0 25.02 25.04"
+    exit 1
+fi
+
+base_version="$1"
+forward_version="$2"
+base_branch="branch-${1}"
+forward_branch="branch-${2}"
+merge_branch="${forward_branch}-merge-${base_version}"
+
+# Check if the --commit flag is provided
+if [ "${3:-""}" == "--commit" ]; then
+    # Commit the merge and push to the personal fork
+    git commit -am "Merge ${base_branch} into ${forward_branch}" --allow-empty
+    git push -u origin "$merge_branch"
+    echo "Merge branch committed and pushed to personal fork."
+    gh pr create \
+        --base "${forward_branch}" \
+        --title "Forward-merge ${base_branch} into ${forward_branch}" \
+        --body "Manual forward merge from ${base_version} to ${forward_version}. This PR should not be squashed." \
+        --label "non-breaking" \
+        --label "improvement"
+else
+    # Check out the base branch and pull from upstream
+    git checkout "$base_branch"
+    git pull upstream
+
+    # Check out the forward branch and pull from upstream
+    git checkout "$forward_branch"
+    git pull upstream
+
+    # Create a merge branch and merge the base branch into it
+    git checkout -b "$merge_branch"
+    git merge --no-squash "$base_branch"
+
+    echo "Merge branch created. Use \"$0 ${base_version} ${forward_version} --commit\" to commit and push."
+fi

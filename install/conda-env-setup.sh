@@ -12,71 +12,45 @@ else
     OS_PLATFORM="Linux"
 fi
 
-while true; do
-    read -p "Install Glotzer core packages? " yn
-    case $yn in
-        [Yy]* )
-            GLOTZER_PKGS="hoomd freud signac signac-flow gsd fresnel"
-            break
-            ;;
-        [Nn]* )
-            GLOTZER_PKGS=""
-            break
-            ;;
-        * ) echo "Please answer yes or no.";;
-    esac
-done
+PYDATA_PKGS="python=3.12 numpy pandas tqdm cython"
+DEV_PKGS="\
+    black \
+    conda-package-handling \
+    isort \
+    ipython \
+    pre-commit \
+    pudb \
+    pytest \
+    pytest-xdist"
+SYS_PKGS="cmake gh ninja ripgrep jq"
+if [ "$(uname -m)" = "x86_64" ]; then
+    # go-yq not available on aarch64 yet
+    SYS_PKGS="${SYS_PKGS} go-yq"
+fi
 
-while true; do
-    read -p "Install tensorflow/keras packages? " yn
-    case $yn in
-        [Yy]* )
-            ML_PKGS="keras tensorflow"
-            break
-            ;;
-        [Nn]* )
-            ML_PKGS=""
-            break
-            ;;
-        * ) echo "Please answer yes or no.";;
-    esac
-done
-
-while true; do
-    read -p "Install openmpi? " yn
-    case $yn in
-        [Yy]* )
-            MPI_PKGS="openmpi"
-            break
-            ;;
-        [Nn]* )
-            MPI_PKGS=""
-            break
-            ;;
-        * ) echo "Please answer yes or no.";;
-    esac
-done
-
-SCIPY_PKGS="numpy pandas scipy matplotlib sympy seaborn statsmodels tqdm cython numba"
-ML_PKGS="${ML_PKGS} scikit-learn networkx"
-NB_PKGS="ipython ipykernel jupyterlab pythreejs"
-DOC_PKGS="sphinx sphinx_rtd_theme nbsphinx"
-DEV_PKGS="flake8 autopep8 nose ddt tbb tbb-devel coverage embree3 h5py ${MPI_PKGS}"
-ALL_PKGS="$GLOTZER_PKGS $SCIPY_PKGS $ML_PKGS $NB_PKGS $DOC_PKGS $DEV_PKGS"
+ALL_PKGS="$PYDATA_PKGS $DEV_PKGS $SYS_PKGS"
 
 # Set up channels
 conda config --add channels conda-forge
 
 # Create environments if they don't exist
-if [ -d $HOME/anaconda3/bin ]; then
-    export CONDA_PATH="$HOME/anaconda3"
-elif [ -d $HOME/miniconda3/bin ]; then
+if [ -d $HOME/miniforge3-aarch64/bin ] && [ "$(uname -m)" = "aarch64" ]; then
+    export CONDA_PATH="$HOME/miniforge3-aarch64"
+elif [ -d $HOME/mambaforge-aarch64/bin ] && [ "$(uname -m)" = "aarch64" ]; then
+    export CONDA_PATH="$HOME/mambaforge-aarch64"
+elif [ -d $HOME/miniforge3/bin ] && [ "$(uname -m)" = "x86_64" ]; then
+    export CONDA_PATH="$HOME/miniforge3"
+elif [ -d $HOME/mambaforge/bin ] && [ "$(uname -m)" = "x86_64" ]; then
+    export CONDA_PATH="$HOME/mambaforge"
+elif [ -d $HOME/miniconda3/bin ] && [ "$(uname -m)" = "x86_64" ]; then
     export CONDA_PATH="$HOME/miniconda3"
+elif [ -d $HOME/anaconda3/bin ] && [ "$(uname -m)" = "x86_64" ]; then
+    export CONDA_PATH="$HOME/anaconda3"
 fi
 
-if [ ! -d "$CONDA_PATH/envs/glotzer" ]; then
-    conda create --yes --name glotzer
+if [ ! -d "$CONDA_PATH/envs/dice" ]; then
+    mamba create --yes --name dice
 fi
 
 # Update/install packages
-conda install --name glotzer $ALL_PKGS $CUSTOM_PKGS
+mamba install --name dice $ALL_PKGS

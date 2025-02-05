@@ -1,15 +1,13 @@
-euclid
+coxeter
 fresnel
 freud
 fsph
-glotz-formats
+garnett
 gsd
 hoomd-blue
 injavis
 libgetar
-peact
 plato
-platoviz
 signac
 signac-flow
 signac-dashboard

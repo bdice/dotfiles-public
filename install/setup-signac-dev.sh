@@ -2,9 +2,11 @@
 
 while true; do
     echo "CONDA_PREFIX: $CONDA_PREFIX"
-    read -p "Install signac, signac-flow, signac-dashboard in dev mode? " yn
+    read -p "Install synced_collections, signac, signac-flow, signac-dashboard in dev mode? " yn
     case $yn in
         [Yy]* )
+            cd $CODE_DIR/synced_collections
+            pip install -e .
             cd $CODE_DIR/signac
             pip install -e .
             cd $CODE_DIR/signac-flow
@@ -19,5 +21,3 @@ while true; do
         * ) echo "Please answer yes or no.";;
     esac
 done
-
-

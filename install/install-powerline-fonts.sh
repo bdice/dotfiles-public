@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # clone
 git clone https://github.com/powerline/fonts.git
 # install

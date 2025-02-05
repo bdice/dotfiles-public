@@ -1,0 +1,61 @@
+#!/bin/bash
+
+set -euo pipefail
+
+function create_menu ()
+{
+  select option; do
+    if [ "$REPLY" -eq "$#" ];
+    then
+      echo "Exiting..." >&2
+      break;
+    elif [ 1 -le "$REPLY" ] && [ "$REPLY" -le $(($#-1)) ];
+    then
+      echo "${option}"
+      break;
+    else
+      echo "Incorrect Input: Select a number 1-$#" >&2
+    fi
+  done
+}
+
+function get_tag ()
+{
+  echo "No tag provided. Select a tag:" >&2
+  # Docker Registry API URL
+  registry_api_url="https://registry.hub.docker.com/v2/repositories/${IMAGE_NAME}/tags?page_size=100"
+  # Send GET request to Docker Registry API
+  response=$(curl -sSL "${registry_api_url}")
+  tags=$(echo "${response}" | jq -r '.results[].name' | sort -nr)
+  IFS=$'\n' read -rd '' -a tags_array <<< "${tags}"
+  create_menu "${tags_array[@]}"
+}
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+REPO_NAME="$(basename ${REPO_ROOT})"
+
+CI_IMAGE="${1:-conda}"
+if [ "${CI_IMAGE}" != "${1:-}" ]; then
+  echo "CI image not provided. Using conda CI."
+fi
+if [ "${CI_IMAGE}" = "conda" ]; then
+  IMAGE_NAME="rapidsai/ci-conda"
+elif [ "${CI_IMAGE}" = "wheel" ]; then
+  IMAGE_NAME="rapidsai/ci-wheel"
+elif [ "${CI_IMAGE}" = "citestwheel" ]; then
+  IMAGE_NAME="rapidsai/citestwheel"
+else
+  echo "Error: Argument should be 'conda', 'wheel', or 'citestwheel'."
+  exit 1
+fi
+
+IMAGE_TAG=${2:-$(get_tag)}
+docker run \
+  --rm \
+  -it \
+  --gpus all \
+  --network=host \
+  --env RAPIDS_REPOSITORY=rapidsai/${REPO_NAME} \
+  --env SCCACHE_S3_NO_CREDENTIALS=1 \
+  -v ${REPO_ROOT}:/${REPO_NAME} -w /${REPO_NAME} \
+  ${IMAGE_NAME}:${IMAGE_TAG}

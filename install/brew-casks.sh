@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Install apps via casks from brew
-
 brew cask install google-chrome iterm2
 brew cask install spectacle
 brew cask install google-backup-and-sync box-sync

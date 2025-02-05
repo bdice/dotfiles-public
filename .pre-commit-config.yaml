@@ -1,0 +1,38 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 'v4.5.0'
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        exclude: |
+          (?x)^(
+            .*\.log
+          )
+      - id: check-builtin-literals
+      - id: check-executables-have-shebangs
+      - id: check-json
+        exclude: |
+          (?x)^(
+            windows/terminal/settings.json
+          )
+      - id: check-yaml
+      - id: debug-statements
+      - id: requirements-txt-fixer
+  - repo: https://github.com/asottile/pyupgrade
+    rev: 'v3.15.0'
+    hooks:
+      - id: pyupgrade
+        args:
+          - --py39-plus
+  - repo: https://github.com/psf/black
+    rev: '23.10.0'
+    hooks:
+      - id: black
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: 'v0.1.1'
+    hooks:
+      - id: ruff
+        exclude: |
+          (?x)^(
+            home/.ipython/profile_default/ipython_config.py
+          )

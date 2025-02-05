@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# Check out all branches from remote as tracking branches.
+# Adapted from https://stackoverflow.com/a/15781173
+
+# Related command: git remote update origin --prune
+
+UPSTREAM=$1
+MYREPO=$2
+
+usage() {
+   echo "Usage:"
+   echo "$0 <upstream-remote> <target-remote>"
+   echo ""
+   echo "Example of how to create local branches/tags from 'upstream' and push them to 'origin':"
+   echo "$0 upstream origin"
+   exit 1
+}
+
+if [ -z "${UPSTREAM}" ]; then
+ echo "Missing upstream remote name."
+ usage
+fi
+
+if [ -z "${MYREPO}" ]; then
+ echo "Missing target remote name."
+ usage
+fi
+
+read -p "1. This will set up local branches to track all branches in '${UPSTREAM}'. Are you sure? " -r
+
+if [[ ${REPLY} =~ ^[Yy][Ee]?[Ss]?$ ]]; then
+    for BRANCH_NAME in `git branch -r | grep ${UPSTREAM} | grep -v HEAD | sed -e 's/[^\/]\+\///'`; do
+        BRANCH_EXISTS_LOCALLY=`git branch --list ${BRANCH_NAME}`
+        BRANCH_EXISTS_REMOTELY=`git branch -r --list ${UPSTREAM}/${BRANCH_NAME}`
+        if [[ -z ${BRANCH_EXISTS_LOCALLY} ]]; then
+            echo "Branch ${BRANCH_NAME} does not exist locally. Skipping."
+        else
+            if [[ -z ${BRANCH_EXISTS_REMOTELY} ]]; then
+                echo "Branch ${UPSTREAM}/${BRANCH_NAME} does not exist on the remote. Skipping."
+            else
+                echo "Tracking ${BRANCH_NAME} to remote ${UPSTREAM}."
+                git branch --set-upstream-to=${UPSTREAM}/${BRANCH_NAME} ${BRANCH_NAME}
+            fi
+        fi
+    done
+
+    # Ensure all local branches are up to date
+    echo "Updating all local branches."
+    git pull --rebase --all
+fi
+
+read -p "2. This will push all local branches and tags into '${MYREPO}'. Are you sure? " -r
+echo ""
+
+if [[ ${REPLY} =~ ^[Yy][Ee]?[Ss]?$ ]]; then
+    echo "Pushing all branches and tags to remote ${MYREPO}."
+    git push --all ${MYREPO}
+    git push --tags ${MYREPO}
+fi

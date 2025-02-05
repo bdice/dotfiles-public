@@ -1,8 +1,38 @@
+[credential]
+	helper = cache --timeout=31536000
+[credential "https://github.com"]
+	helper = "!f() { command -v gh > /dev/null 2>&1 && gh auth git-credential $@; }; f"
+[credential "https://gist.github.com"]
+	helper = "!f() { command -v gh > /dev/null 2>&1 && gh auth git-credential $@; }; f"
 [push]
 	default = simple
-	followTags = true
+	followTags = false
 [color]
 	ui = auto
 [core]
 	editor = $(which vim)
 	excludesfile = "~/.gitexcludes"
+[pull]
+	rebase = false
+[init]
+	defaultBranch = main
+[fetch]
+	prune = true
+[color "diff"]
+	whitespace = red reverse
+[diff]
+	wsErrorHighlight = all
+[alias]
+	edit-unmerged = "!f() { git diff --name-status --diff-filter=U | cut -f2 ; }; vim `f`"
+	add-unmerged = "!f() { git diff --name-status --diff-filter=U | cut -f2 ; }; git add `f`"
+	recent-branches = "branch --sort=-committerdate"
+	upstream-branch = "!git branch $(git branch --show-current) --set-upstream-to upstream/$(git branch --show-current)"
+[rerere]
+	enabled = true
+	autoupdate = true
+[gpg]
+	format = ssh
+[gpg "ssh"]
+	allowedSignersFile = ~/.ssh/allowed_signers
+[commit]
+	gpgsign = true

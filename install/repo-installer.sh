@@ -1,22 +1,21 @@
 #!/bin/bash
-
-# Clone Glotzer lab repositories
-
-if [ -d "$CODE_DIR" ]; then
-
-    function ghclone() {
-        if [ -d ${3:-"$CODE_DIR/${1}"} ]; then
-            echo "${1} is already cloned."
-        else
-            git clone --recurse-submodules https://${USER}@github.com/${2:-"glotzerlab"}/${1}.git ${3:-"$CODE_DIR/${1}"}
-        fi
-    }
-
-    # glotzerlab GitHub repositories
-    for REPO in fresnel freud fsph gsd hoomd-blue plato signac signac-flow signac-dashboard; do
-        ghclone $REPO
-    done
-
-else
+if [ ! -d "${CODE_DIR}" ]; then
     echo "Environment variable \$CODE_DIR not set or does not exist."
+    exit 1
 fi
+
+source $HOME/.bash_aliases
+
+pushd ${CODE_DIR}
+
+# Personal repositories
+for repo in dotfiles rapids-sketches; do
+    ghclone bdice/${repo}
+done
+
+# RAPIDS repositories
+for repo in devcontainers rapids-cmake rmm kvikio cudf raft cuvs cumlprims_mg cuml cugraph cugraph-gnn nx-cugraph cuspatial cuxfilter ucxx ucx-py shared-workflows integration; do
+    ghclone rapidsai/${repo}
+done
+
+popd

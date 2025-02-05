@@ -1,7 +1,11 @@
 .DS_Store
 *.pyc
 ._*
-*.ipynb_checkpoints/*
+**/.ipynb_checkpoints
 *.swp
 __pycache__/
 *.egg-info*
+.vscode
+.hypothesis
+.clangd
+compile_commands.json
